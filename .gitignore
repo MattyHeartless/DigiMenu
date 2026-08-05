@@ -1,0 +1,12 @@
+.env
+.env.local
+**/bin/
+**/obj/
+**/node_modules/
+.dotnet/
+.tools/
+# Salida y cachés generados por Next.js
+**/.next/
+**/.next-*/
+storage/
+*.user

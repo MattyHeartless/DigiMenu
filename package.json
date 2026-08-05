@@ -1,0 +1,10 @@
+{
+  "name": "digimenu",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev:admin": "npm run dev --workspace=@digimenu/administration",
+    "dev:menus": "npm run dev --workspace=@digimenu/menus",
+    "build": "npm run build --workspaces"
+  }
+}

@@ -1,0 +1,17 @@
+using System.Text; using System.Text.Json.Serialization; using DigiMenu.Api.Data; using DigiMenu.Api.Domain; using DigiMenu.Api.Services; using Microsoft.AspNetCore.Authentication.JwtBearer; using Microsoft.EntityFrameworkCore; using Microsoft.IdentityModel.Tokens; using QuestPDF.Infrastructure;
+var builder=WebApplication.CreateBuilder(args);
+builder.Configuration.AddInMemoryCollection(DotEnv.Read(builder.Environment.ContentRootPath));
+QuestPDF.Settings.License=LicenseType.Community;
+builder.Services.AddControllers().AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter())); builder.Services.AddEndpointsApiExplorer(); builder.Services.AddSwaggerGen();
+builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+builder.Services.AddDbContext<DigiMenuDbContext>(o=>o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o=>{o.TokenValidationParameters=new TokenValidationParameters{ValidateIssuer=true,ValidateAudience=true,ValidateLifetime=true,ValidateIssuerSigningKey=true,ValidIssuer=builder.Configuration["Jwt:Issuer"],ValidAudience=builder.Configuration["Jwt:Audience"],IssuerSigningKey=new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]??"development-key-must-be-replaced-before-any-deployment"))};});
+builder.Services.AddAuthorization(o=>{o.AddPolicy("RequireSuperadmin",p=>p.RequireRole(Role.Superadmin.ToString()));o.AddPolicy("RequireBusinessAdmin",p=>p.RequireRole(Role.BusinessAdmin.ToString()));o.AddPolicy("RequireBusinessAccess",p=>p.RequireAuthenticatedUser());});
+var allowedOrigins=builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()??["http://localhost:3000","http://localhost:3001"];
+builder.Services.AddCors(o=>o.AddDefaultPolicy(p=>p.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
+builder.Services.AddHttpClient("kimi",c=>{c.BaseAddress=new Uri((builder.Configuration["Kimi:BaseUrl"]??"https://api.moonshot.ai/v1").TrimEnd('/')+"/");c.Timeout=TimeSpan.FromSeconds(90);});
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IBusinessAccess,BusinessAccess>();builder.Services.AddScoped<IFileStorage,LocalFileStorage>();builder.Services.AddScoped<IPdfService,PdfService>();builder.Services.AddScoped<IKimiTemplateAdvisor,KimiTemplateAdvisor>();
+var app=builder.Build();
+await app.Services.SeedAsync(app.Configuration);
+if(app.Environment.IsDevelopment()){app.UseSwagger();app.UseSwaggerUI();}if(builder.Configuration.GetValue("HttpsRedirection:Enabled",true))app.UseHttpsRedirection();app.UseCors();app.UseAuthentication();app.UseAuthorization();app.MapControllers();app.Run();
