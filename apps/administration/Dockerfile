@@ -16,6 +16,8 @@ COPY . .
 # NEXT_PUBLIC_* is bundled into client-side JavaScript during the build.
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ARG NEXT_PUBLIC_MENU_URL
+ENV NEXT_PUBLIC_MENU_URL=${NEXT_PUBLIC_MENU_URL}
 RUN npm run build --workspace=@digimenu/administration
 
 FROM node:22-alpine AS runner
