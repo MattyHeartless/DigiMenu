@@ -9,12 +9,14 @@ public static class DevelopmentSeeder
 {
     public static async Task SeedAsync(this IServiceProvider services, IConfiguration configuration)
     {
+        using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<DigiMenuDbContext>();
+        await db.Database.MigrateAsync();
+
         var email = configuration["Seed:SuperadminEmail"];
         var password = configuration["Seed:SuperadminPassword"];
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password)) return;
 
-        using var scope = services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<DigiMenuDbContext>();
         var business = await db.Businesses.SingleOrDefaultAsync(x => x.Slug == "viuda-negra");
         if (business is null)
         {
