@@ -169,6 +169,8 @@ public class PdfService(DigiMenuDbContext db, IFileStorage storage, IWebHostEnvi
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var document = await db.BusinessPdfDocuments.SingleOrDefaultAsync(x => x.Id == documentId && x.BusinessID == businessId, ct) ?? throw new KeyNotFoundException();
         if (document.Status != DocumentStatus.Draft) throw new InvalidOperationException("Solo se puede publicar un borrador.");
+        await using var file = await storage.OpenAsync(document.FileUrl, ct);
+        if (file is null) throw new InvalidOperationException("No encontramos el archivo de este borrador. Genera uno nuevo antes de publicarlo.");
         var previousDocuments = await db.BusinessPdfDocuments.Where(x => x.BusinessID == businessId && x.Status == DocumentStatus.Published).ToListAsync(ct);
         foreach (var item in previousDocuments) { item.Status = DocumentStatus.Archived; item.ArchivedAt = DateTime.UtcNow; }
         document.Status = DocumentStatus.Published; document.PublishedAt = DateTime.UtcNow;

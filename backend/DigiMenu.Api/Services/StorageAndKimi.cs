@@ -10,9 +10,18 @@ namespace DigiMenu.Api.Services;
 
 public interface IFileStorage { Task<string> SaveAsync(Stream data, string fileName, string contentType, CancellationToken ct); Task<Stream?> OpenAsync(string key, CancellationToken ct); }
 
-public class LocalFileStorage(IWebHostEnvironment env) : IFileStorage
+public class LocalFileStorage(IWebHostEnvironment env, IConfiguration configuration) : IFileStorage
 {
-    readonly string root = Path.Combine(env.ContentRootPath, "storage");
+    readonly string root = ResolveRoot(env, configuration["Storage:RootPath"]);
+
+    static string ResolveRoot(IWebHostEnvironment env, string? configuredRoot)
+    {
+        if (string.IsNullOrWhiteSpace(configuredRoot)) return Path.Combine(env.ContentRootPath, "storage");
+        return Path.IsPathFullyQualified(configuredRoot)
+            ? configuredRoot
+            : Path.Combine(env.ContentRootPath, configuredRoot);
+    }
+
     public async Task<string> SaveAsync(Stream data, string fileName, string contentType, CancellationToken ct) { Directory.CreateDirectory(root); var safe = Path.GetFileName(fileName); var key = $"{Guid.NewGuid():N}-{safe}"; await using var f = File.Create(Path.Combine(root, key)); await data.CopyToAsync(f, ct); return key; }
     public Task<Stream?> OpenAsync(string key, CancellationToken ct) { var path = Path.Combine(root, Path.GetFileName(key)); return Task.FromResult<Stream?>(File.Exists(path) ? File.OpenRead(path) : null); }
 }

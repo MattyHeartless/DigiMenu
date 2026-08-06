@@ -21,7 +21,9 @@ public class AdminPdfDocumentController(DigiMenuDbContext db, IBusinessAccess ac
         var document = await db.BusinessPdfDocuments.SingleOrDefaultAsync(x => x.Id == documentId && x.BusinessID == businessId);
         if (document is null) return Results.NotFound();
         var file = await storage.OpenAsync(document.FileUrl, HttpContext.RequestAborted);
-        return file is null ? Results.NotFound() : Results.File(file, "application/pdf", enableRangeProcessing: true);
+        return file is null
+            ? Results.NotFound(new { message = "No encontramos el archivo de este borrador. Genera uno nuevo para continuar." })
+            : Results.File(file, "application/pdf", enableRangeProcessing: true);
     }
 
     [HttpPost("{documentId:guid}/archive")]
