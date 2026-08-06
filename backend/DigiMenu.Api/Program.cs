@@ -1,4 +1,4 @@
-using System.Text; using System.Text.Json.Serialization; using DigiMenu.Api.Data; using DigiMenu.Api.Domain; using DigiMenu.Api.Services; using Microsoft.AspNetCore.Authentication.JwtBearer; using Microsoft.EntityFrameworkCore; using Microsoft.IdentityModel.Tokens; using QuestPDF.Infrastructure;
+using System.Diagnostics; using System.Text; using System.Text.Json.Serialization; using DigiMenu.Api.Data; using DigiMenu.Api.Domain; using DigiMenu.Api.Services; using Microsoft.AspNetCore.Authentication.JwtBearer; using Microsoft.EntityFrameworkCore; using Microsoft.IdentityModel.Tokens; using QuestPDF.Infrastructure;
 var builder=WebApplication.CreateBuilder(args);
 builder.Configuration.AddInMemoryCollection(DotEnv.Read(builder.Environment.ContentRootPath));
 QuestPDF.Settings.License=LicenseType.Community;
@@ -14,4 +14,4 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IBusinessAccess,BusinessAccess>();builder.Services.AddScoped<IFileStorage,LocalFileStorage>();builder.Services.AddScoped<IPdfService,PdfService>();builder.Services.AddScoped<IKimiTemplateAdvisor,KimiTemplateAdvisor>();
 var app=builder.Build();
 await app.Services.SeedAsync(app.Configuration);
-if(app.Environment.IsDevelopment()){app.UseSwagger();app.UseSwaggerUI();}if(builder.Configuration.GetValue("HttpsRedirection:Enabled",true))app.UseHttpsRedirection();app.UseCors();app.UseAuthentication();app.UseAuthorization();app.MapControllers();app.Run();
+if(app.Environment.IsDevelopment()){app.UseSwagger();app.UseSwaggerUI();}if(builder.Configuration.GetValue("HttpsRedirection:Enabled",true))app.UseHttpsRedirection();app.UseCors();app.Use(async(context,next)=>{var stopwatch=Stopwatch.StartNew();await next();app.Logger.LogInformation("HTTP {Method} {Path} responded {StatusCode} in {ElapsedMilliseconds} ms",context.Request.Method,context.Request.Path,context.Response.StatusCode,stopwatch.ElapsedMilliseconds);});app.UseAuthentication();app.UseAuthorization();app.MapControllers();app.Run();
