@@ -24,7 +24,7 @@ public class AuthController(DigiMenuDbContext db, IConfiguration config) : Contr
         var user = await db.Users.Include(x => x.UserBusinesses).ThenInclude(x => x.Business).SingleOrDefaultAsync(x => x.Email == input.Email && x.IsActive);
         if (user is null || new PasswordHasher<AppUser>().VerifyHashedPassword(user, user.PasswordHash, input.Password) == PasswordVerificationResult.Failed) return Results.Unauthorized();
         var membership = user.UserBusinesses.Where(x => x.IsActive && x.Business.IsActive).OrderBy(x => x.CreatedAt).FirstOrDefault(); if (membership is null) return Results.Unauthorized();
-        return Results.Ok(await Issue(user, membership));
+        return Results.Ok(await Issue(user, membership, input.RememberMe));
     }
 
     [HttpPost("refresh")]
@@ -36,7 +36,7 @@ public class AuthController(DigiMenuDbContext db, IConfiguration config) : Contr
         if (current is null || !current.User.IsActive) return Results.Unauthorized();
         var membership = current.User.UserBusinesses.Where(x => x.IsActive && x.Business.IsActive).OrderBy(x => x.CreatedAt).FirstOrDefault(); if (membership is null) return Results.Unauthorized();
         current.RevokedAt = DateTime.UtcNow;
-        return Results.Ok(await Issue(current.User, membership));
+        return Results.Ok(await Issue(current.User, membership, current.RememberMe));
     }
 
     [HttpPost("logout")]
@@ -52,13 +52,13 @@ public class AuthController(DigiMenuDbContext db, IConfiguration config) : Contr
     [Authorize]
     public IResult Me() => Results.Ok(new { userId = User.FindFirstValue(ClaimTypes.NameIdentifier), role = User.FindFirstValue(ClaimTypes.Role), businessId = User.FindFirstValue("BusinessID") });
 
-    async Task<object> Issue(AppUser user, UserBusiness membership)
+    async Task<object> Issue(AppUser user, UserBusiness membership, bool rememberMe)
     {
         var claims = new[] { new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), new Claim(ClaimTypes.Email, user.Email), new Claim(ClaimTypes.Role, membership.Role.ToString()), new Claim("BusinessID", membership.Role == Role.Superadmin ? "" : membership.BusinessID.ToString()) };
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Key"] ?? throw new InvalidOperationException("JWT no configurado")));
         var token = new JwtSecurityToken(config["Jwt:Issuer"], config["Jwt:Audience"], claims, expires: DateTime.UtcNow.AddMinutes(30), signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
         var rawRefresh = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
-        db.RefreshTokens.Add(new RefreshToken { Id = Guid.NewGuid(), UserId = user.Id, TokenHash = Hash(rawRefresh), ExpiresAt = DateTime.UtcNow.AddDays(14) });
+        db.RefreshTokens.Add(new RefreshToken { Id = Guid.NewGuid(), UserId = user.Id, TokenHash = Hash(rawRefresh), RememberMe = rememberMe, ExpiresAt = DateTime.UtcNow.AddDays(rememberMe ? 30 : 14) });
         await db.SaveChangesAsync();
         return new { accessToken = new JwtSecurityTokenHandler().WriteToken(token), refreshToken = rawRefresh, user = new { user.Id, user.Email, role = membership.Role.ToString() }, business = new { membership.Business.Id, membership.Business.Name, membership.Business.Slug } };
     }

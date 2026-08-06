@@ -93,6 +93,14 @@
   color: #1a1d31;
 }
 
+.login-form h2 {
+  margin: 0 0 8px;
+  color: #1a1d31;
+  font-size: 30px;
+  letter-spacing: -0.055em;
+  text-align: center;
+}
+
 .login-form label {
   display: grid;
   gap: 8px;
@@ -139,6 +147,25 @@
 .login-input input::placeholder {
   color: #a7a29b;
 }
+
+.remember-session {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 9px;
+  width: fit-content;
+  cursor: pointer;
+  user-select: none;
+}
+
+.remember-session input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: #e8ae17;
+}
+
+.remember-session span { color: #3e4051; font-size: 12px; }
+.remember-session small { margin-left: 4px; color: #817d75; font-size: 11px; font-weight: 600; }
 
 .login-button {
   width: 100%;

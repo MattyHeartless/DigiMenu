@@ -18,7 +18,12 @@ public class SuperadminController(DigiMenuDbContext db, IKimiTemplateAdvisor kim
     Guid Actor => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     [HttpGet("businesses")]
-    public async Task<IResult> Businesses() => Results.Ok(await db.Businesses.OrderBy(x => x.Name).ToListAsync());
+    public async Task<IResult> Businesses() => Results.Ok(await db.Businesses.OrderBy(x => x.Name).Select(x => new
+    {
+        x.Id, x.Name, x.Slug, x.BusinessType, x.IsActive, x.CreatedAt,
+        administrators = db.UserBusinesses.Where(m => m.BusinessID == x.Id && m.Role == Role.BusinessAdmin && m.IsActive)
+            .Select(m => new { m.User.Email, m.User.DisplayName }).ToList()
+    }).ToListAsync());
 
     [HttpGet("businesses/{businessId:guid}")]
     public async Task<IResult> Business(Guid businessId) => await db.Businesses.FindAsync(businessId) is { } business ? Results.Ok(business) : Results.NotFound();
@@ -32,6 +37,34 @@ public class SuperadminController(DigiMenuDbContext db, IKimiTemplateAdvisor kim
         var business = new Business { Id = Guid.NewGuid(), Name = input.Name.Trim(), Slug = slug, BusinessType = input.BusinessType };
         db.Businesses.Add(business); Audit("CreateBusiness", "Business", business.Id, business.Id); await db.SaveChangesAsync();
         return Results.Created($"api/superadmin/businesses/{business.Id}", business);
+    }
+
+    [HttpPost("businesses/onboard")]
+    public async Task<IResult> OnboardBusiness(CreateBusinessWithAdminRequest input)
+    {
+        var name = input.Name.Trim();
+        var slug = Normalize(input.Slug);
+        var email = input.AdminEmail.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(name)) return Results.BadRequest(new { message = "El nombre del negocio es obligatorio." });
+        if (string.IsNullOrWhiteSpace(slug)) return Results.BadRequest(new { message = "El identificador público es obligatorio." });
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(input.AdminPassword)) return Results.BadRequest(new { message = "El correo y la contraseña del administrador son obligatorios." });
+        if (!System.Net.Mail.MailAddress.TryCreate(email, out _)) return Results.BadRequest(new { message = "Escribe un correo electrónico válido para el administrador." });
+        if (input.AdminPassword.Length < 8) return Results.BadRequest(new { message = "La contraseña del administrador debe tener al menos 8 caracteres." });
+        if (await db.Businesses.AnyAsync(x => x.Slug == slug)) return Results.Conflict(new { message = "El identificador público ya está en uso." });
+        if (await db.Users.AnyAsync(x => x.Email == email)) return Results.Conflict(new { message = "Ya existe una cuenta con ese correo." });
+
+        await using var transaction = await db.Database.BeginTransactionAsync(HttpContext.RequestAborted);
+        var business = new Business { Id = Guid.NewGuid(), Name = name, Slug = slug, BusinessType = string.IsNullOrWhiteSpace(input.BusinessType) ? null : input.BusinessType.Trim() };
+        var user = new AppUser { Id = Guid.NewGuid(), Email = email, DisplayName = string.IsNullOrWhiteSpace(input.AdminDisplayName) ? null : input.AdminDisplayName.Trim(), PasswordHash = "" };
+        user.PasswordHash = new PasswordHasher<AppUser>().HashPassword(user, input.AdminPassword);
+        db.Businesses.Add(business);
+        db.Users.Add(user);
+        db.UserBusinesses.Add(new UserBusiness { Id = Guid.NewGuid(), UserId = user.Id, BusinessID = business.Id, Role = Role.BusinessAdmin });
+        Audit("CreateBusiness", "Business", business.Id, business.Id);
+        Audit("CreateBusinessAdmin", "User", user.Id, business.Id);
+        await db.SaveChangesAsync(HttpContext.RequestAborted);
+        await transaction.CommitAsync(HttpContext.RequestAborted);
+        return Results.Created($"api/superadmin/businesses/{business.Id}", new { business, administrator = new { user.Id, user.Email, user.DisplayName } });
     }
 
     [HttpPatch("businesses/{businessId:guid}/status")]

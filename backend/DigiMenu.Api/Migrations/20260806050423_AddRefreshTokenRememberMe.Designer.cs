@@ -4,6 +4,7 @@ using DigiMenu.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DigiMenu.Api.Migrations
 {
     [DbContext(typeof(DigiMenuDbContext))]
-    partial class DigiMenuDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260806050423_AddRefreshTokenRememberMe")]
+    partial class AddRefreshTokenRememberMe
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
