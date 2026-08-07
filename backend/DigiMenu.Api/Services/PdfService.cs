@@ -66,30 +66,40 @@ public class PdfService(DigiMenuDbContext db, IFileStorage storage, IWebHostEnvi
                     // aspect ratio differs slightly from the selected paper size.
                     layers.PrimaryLayer().Image(visuals.InteriorBackground).FitUnproportionally();
                 });
-                // The brand header acts as a cover: it should introduce the menu once,
-                // not consume space or repeat on every continuation page.
-                // Uploaded title artwork is a 3:1 banner. Give it enough vertical space
-                // to render at full page width instead of shrinking it to fit 112 points.
-                page.Header().ShowOnce().Height(visuals.HeaderBackground is null ? 32 : 200).Layers(layers =>
+                // Without title artwork, let the header grow with the business name.
+                // A fixed 32-point container can be smaller than the configured title font.
+                if (visuals.HeaderBackground is null)
                 {
-                    // The title background is a horizontal banner. Fit it to the full
-                    // page width so it reaches both edges of the PDF header.
-                    if (visuals.HeaderBackground is not null) layers.Layer().Image(visuals.HeaderBackground).FitUnproportionally();
-                    // Keep the logo/title row compact and vertically centered over the banner.
-                    var content = layers.PrimaryLayer()
-                        .PaddingHorizontal(18)
-                        .PaddingTop(visuals.HeaderBackground is null ? 0 : 10)
-                        .AlignMiddle()
-                        .AlignCenter()
-                        .Shrink();
-                    content.Column(header =>
+                    page.Header().ShowOnce().PaddingBottom(10).AlignCenter()
+                        .Text(business.Name).FontSize(settings.HeaderFontSize * 1.5f).FontColor(settings.AccentColor);
+                }
+                else
+                {
+                    // The brand header acts as a cover: it should introduce the menu once,
+                    // not consume space or repeat on every continuation page.
+                    // Uploaded title artwork is a 3:1 banner. Give it enough vertical space
+                    // to render at full page width instead of shrinking it to fit 112 points.
+                    page.Header().ShowOnce().Height(200).Layers(layers =>
                     {
-                        // Do not request Bold/SemiBold: a single uploaded .ttf often has no
-                        // matching weight and the renderer would silently substitute it.
-                        header.Item().AlignCenter().Text(business.Name).FontSize(visuals.HeaderBackground is null ? settings.HeaderFontSize * 1.5f : Math.Max(settings.HeaderFontSize + 9, 27) * 1.5f).FontColor(visuals.HeaderBackground is null ? settings.AccentColor : "#17110f");
-                        if (visuals.HeaderBackground is not null) header.Item().PaddingTop(5).AlignCenter().Text("MENÚ").LetterSpacing(2).FontSize(12).FontColor("#17110f");
+                        // The title background is a horizontal banner. Fit it to the full
+                        // page width so it reaches both edges of the PDF header.
+                        layers.Layer().Image(visuals.HeaderBackground).FitUnproportionally();
+                        // Keep the logo/title row compact and vertically centered over the banner.
+                        var content = layers.PrimaryLayer()
+                            .PaddingHorizontal(18)
+                            .PaddingTop(10)
+                            .AlignMiddle()
+                            .AlignCenter()
+                            .Shrink();
+                        content.Column(header =>
+                        {
+                            // Do not request Bold/SemiBold: a single uploaded .ttf often has no
+                            // matching weight and the renderer would silently substitute it.
+                            header.Item().AlignCenter().Text(business.Name).FontSize(Math.Max(settings.HeaderFontSize + 9, 27) * 1.5f).FontColor("#17110f");
+                            header.Item().PaddingTop(5).AlignCenter().Text("MENÚ").LetterSpacing(2).FontSize(12).FontColor("#17110f");
+                        });
                     });
-                });
+                }
                 page.Content().Column(column =>
                 {
                     column.Spacing(settings.ProductSpacing * 1.5f);
