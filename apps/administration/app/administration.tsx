@@ -158,7 +158,10 @@ type AdminSection =
   | "Plantillas"
   | "Negocios"
   | "Configuración";
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5099";
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5099").replace(
+  /\/$/,
+  "",
+);
 const publicMenuUrl = (
   process.env.NEXT_PUBLIC_MENU_URL ?? "http://localhost:3001"
 ).replace(/\/$/, "");
