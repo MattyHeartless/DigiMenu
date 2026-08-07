@@ -659,23 +659,6 @@ export function Administration({
     }
   }
   async function generatePdf() {
-    const activeTemplate = templates.find((template) => template.isActive);
-    const hasHeaderBackground = Boolean(
-      draftHeaderBackground ?? activeTemplate?.coverBackgroundUrl,
-    );
-    const hasInnerBackground = Boolean(
-      draftInnerBackground ?? activeTemplate?.innerPageBackgroundUrl,
-    );
-    if (!hasHeaderBackground || !hasInnerBackground) {
-      setNotice(
-        !hasHeaderBackground && !hasInnerBackground
-          ? "Antes de generar, selecciona una plantilla con fondos o carga el encabezado y las páginas interiores."
-          : !hasHeaderBackground
-            ? "Agrega un fondo de encabezado antes de generar el menú."
-            : "Agrega un fondo para las páginas interiores antes de generar el menú.",
-      );
-      return;
-    }
     try {
       const form = new FormData();
       if (draftHeaderBackground)
@@ -1456,7 +1439,10 @@ export function Administration({
                       <Sparkle weight="fill" />
                       <span>
                         <b>Fondos del menú</b>
-                        <small>Se cargan los de la plantilla activa</small>
+                        <small>
+                          Opcionales: se usan los de la plantilla activa si no
+                          cargas archivos personalizados.
+                        </small>
                       </span>
                     </div>
                     <label className="pdf-background-upload">
