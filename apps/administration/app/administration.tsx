@@ -475,7 +475,7 @@ export function Administration({
     void (async () => {
       try {
         const response = await authenticatedFetch(
-          `/api/admin/qr/download?destination=Main&format=png&size=${qrSize}`,
+          `/api/admin/qr/download?destination=Main&format=png&size=${qrSize}&targetUrl=${encodeURIComponent(publicMenuHref(session.slug))}`,
           {},
           session,
         );
@@ -854,7 +854,7 @@ export function Administration({
   async function downloadQr(format: "png" | "svg") {
     try {
       const response = await request(
-        `/api/admin/qr/download?destination=Main&format=${format}&size=${qrSize}`,
+        `/api/admin/qr/download?destination=Main&format=${format}&size=${qrSize}&targetUrl=${encodeURIComponent(publicMenuHref(session!.slug))}`,
       );
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);

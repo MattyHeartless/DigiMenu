@@ -6,7 +6,7 @@ namespace DigiMenu.Api.Controllers;
 [HttpPost("qr/generate")] public async Task<IResult> Qr(QrRequest input){var id=await Business();var business=await db.Businesses.SingleAsync(x=>x.Id==id);var dest=input.Destination is "Pdf" or "Animated"?input.Destination:"Main";if(dest=="Animated"&&!business.HasAnimatedMenu)return Results.BadRequest(new{message="El menú animado no está habilitado."});var suffix=dest=="Main"?"":$"/{dest.ToLowerInvariant()}";var url=$"{Request.Scheme}://{Request.Host}/{business.Slug}{suffix}";var config=await db.QrConfigurations.SingleOrDefaultAsync(x=>x.BusinessID==id)??new QrConfiguration{Id=Guid.NewGuid(),BusinessID=id};config.DefaultDestination=dest;config.LastGeneratedUrl=url;config.UpdatedAt=DateTime.UtcNow;db.Update(config);await db.SaveChangesAsync();return Results.Ok(new{url,fileName=$"{business.Slug}-{dest.ToLowerInvariant()}-qr",downloadUrl=$"/api/admin/qr/download?destination={dest}&format={input.Format}"});}
 
 [HttpGet("qr/download")]
-public async Task<IResult> DownloadQr([FromQuery]string destination="Main",[FromQuery]string format="svg",[FromQuery]int size=1024,[FromQuery]string foreground="#171a2f",[FromQuery]string background="#ffffff")
+public async Task<IResult> DownloadQr([FromQuery]string destination="Main",[FromQuery]string format="svg",[FromQuery]int size=1024,[FromQuery]string foreground="#171a2f",[FromQuery]string background="#ffffff",[FromQuery]string? targetUrl=null)
 {
     if (size is not (512 or 1024 or 2048)) return Results.BadRequest(new { message = "Elige un tamaño de 512, 1024 o 2048 px." });
     if (!TryColor(foreground, out var dark) || !TryColor(background, out var light)) return Results.BadRequest(new { message = "Usa colores hexadecimales de seis dígitos." });
@@ -14,7 +14,7 @@ public async Task<IResult> DownloadQr([FromQuery]string destination="Main",[From
 
     var id=await Business(); var business=await db.Businesses.SingleAsync(x=>x.Id==id); var dest=destination is "Pdf" or "Animated"?destination:"Main";
     if(dest=="Animated"&&!business.HasAnimatedMenu)return Results.BadRequest();
-    var url=$"{Request.Scheme}://{Request.Host}/{business.Slug}{(dest=="Main"?"":$"/{dest.ToLowerInvariant()}")}";
+    var url=BuildQrUrl(targetUrl,Request,business.Slug,dest);
     using var generator=new QRCodeGenerator(); using var data=generator.CreateQrCode(url,QRCodeGenerator.ECCLevel.Q);
     var pixelsPerModule=Math.Max(1,size/data.ModuleMatrix.Count); var name=$"{business.Slug}-{dest.ToLowerInvariant()}-{size}px-qr";
     if(format.Equals("png",StringComparison.OrdinalIgnoreCase))
@@ -27,6 +27,11 @@ public async Task<IResult> DownloadQr([FromQuery]string destination="Main",[From
 }
 
 static bool TryColor(string value,out string hex){hex=(value??string.Empty).Trim();if(!hex.StartsWith('#'))hex="#"+hex;return System.Text.RegularExpressions.Regex.IsMatch(hex,"^#[0-9A-Fa-f]{6}$");}
+static string BuildQrUrl(string? targetUrl,HttpRequest request,string businessSlug,string destination)
+{
+    if(Uri.TryCreate(targetUrl,UriKind.Absolute,out var target)&&target.Scheme is "http" or "https")return target.AbsoluteUri;
+    return $"{request.Scheme}://{request.Host}/{businessSlug}{(destination=="Main"?"":$"/{destination.ToLowerInvariant()}")}";
+}
 static byte[] ToRgba(string hex)=>[Convert.ToByte(hex[1..3],16),Convert.ToByte(hex[3..5],16),Convert.ToByte(hex[5..7],16),255];
 static double ContrastRatio(string first,string second){static double L(string hex){var c=ToRgba(hex).Take(3).Select(x=>x/255d).Select(x=>x<=.04045?x/12.92:Math.Pow((x+.055)/1.055,2.4)).ToArray();return .2126*c[0]+.7152*c[1]+.0722*c[2];}var a=L(first);var b=L(second);return (Math.Max(a,b)+.05)/(Math.Min(a,b)+.05);}
 static bool ValidBackground(IFormFile file)=>file.Length>0&&file.Length<=10_000_000&&new[]{"image/png","image/jpeg","image/webp"}.Contains(file.ContentType,StringComparer.OrdinalIgnoreCase);
